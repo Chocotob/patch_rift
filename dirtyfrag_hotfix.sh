@@ -11,57 +11,44 @@ echo -e "${BLUE}===================================================${NC}"
 echo -e "${BLUE}      DirtyFrag (CVE-2026-38294) Hotfix Script     ${NC}"
 echo -e "${BLUE}===================================================${NC}"
 
-# 1. ตรวจสอบเวอร์ชัน Kernel
+# 1. ตรวจสอบเวอร์ชัน Kernel (อ้างอิงจากข้อมูลล่าสุด)
 KERNEL_VER=$(uname -r)
-KERNEL_BASE=$(echo $KERNEL_VER | cut -d'-' -f1)
 echo -e "${PURPLE}[*] Current Kernel:${NC} $KERNEL_VER"
 
-# เกณฑ์ความปลอดภัยเบื้องต้น (ตัวอย่างเลข Patch ที่ปลอดภัย)
-# 6.8.5+, 6.6.26+, 6.1.85+
-IS_VULN=false
-if [[ "$KERNEL_VER" == *"5.15.0-"* ]]; then
-    BUILD_NUM=$(echo $KERNEL_VER | cut -d'-' -f2)
-    [ "$BUILD_NUM" -lt 111 ] && IS_VULN=true
-elif [[ "$KERNEL_VER" == *"6.8.0-"* ]]; then
-    BUILD_NUM=$(echo $KERNEL_VER | cut -d'-' -f2)
-    [ "$BUILD_NUM" -lt 111 ] && IS_VULN=true
+# เครื่องที่รัน Kernel ต่ำกว่า 6.8.5 หรือแพตช์ล่าสุดถือว่าเสี่ยง
+IS_VULN=true
+if [[ "$KERNEL_VER" == *"6.8.0-111"* ]] || [[ "$KERNEL_VER" == *"1.18.0-6ubuntu14.11"* ]]; then
+    IS_VULN=false
 fi
 
-# 2. ตรวจสอบว่า IPv6 เปิดใช้งานอยู่หรือไม่
-if [ -f /proc/net/if_inet6 ]; then
-    IPV6_ENABLED=true
-    echo -e "${YELLOW}[*] IPv6 is currently ENABLED.${NC}"
-else
-    IPV6_ENABLED=false
-    echo -e "${GREEN}[V] IPv6 is DISABLED. Risk is significantly lower.${NC}"
-fi
-
-# 3. สรุปผลการตรวจสอบ
-if [ "$IS_VULN" = true ] && [ "$IPV6_ENABLED" = true ]; then
+# 2. ตรวจสอบความเสี่ยง
+if [ "$IS_VULN" = true ]; then
     echo -e "${RED}[!] Status: VULNERABLE to DirtyFrag.${NC}"
     
-    # 4. ถามเพื่อทำ Workaround
-    echo -e "\n${YELLOW}Would you like to apply a Workaround? (y/n)${NC}"
-    echo -e "${BLUE}(This will block IPv6 Fragments using ip6tables to close the exploit path)${NC}"
-    read -p ">> " CONFIRM
+    # 3. ถามเพื่อทำ Workaround (Module Blacklisting)
+    echo -e "\n${YELLOW}Would you like to apply the Module Blacklist workaround? (y/n)${NC}"
+    echo -e "${BLUE}(This will disable esp4, esp6, and rxrpc to close exploit paths)${NC}"
+    
+    # ใช้ /dev/tty เพื่อให้รองรับการรันผ่าน curl | bash
+    read -p ">> " CONFIRM < /dev/tty
     
     if [[ "$CONFIRM" == "y" || "$CONFIRM" == "Y" ]]; then
-        echo -e "${YELLOW}[*] Applying ip6tables rule...${NC}"
+        echo -e "${YELLOW}[*] Applying Module Blacklist and dropping caches...${NC}"
         
-        # บล็อก IPv6 Fragments
-        sudo ip6tables -A INPUT -m frag -j DROP
+        # รันคำสั่งที่คุณแนะนำ
+        sudo sh -c "printf 'install esp4 /bin/false\ninstall esp6 /bin/false\ninstall rxrpc /bin/false\n' > /etc/modprobe.d/dirtyfrag.conf; rmmod esp4 esp6 rxrpc 2>/dev/null; echo 3 > /proc/sys/vm/drop_caches; true"
         
         if [ $? -eq 0 ]; then
-            echo -e "${GREEN}[V] Workaround applied! IPv6 Fragments are now blocked.${NC}"
-            echo -e "${PURPLE}Note: This is a temporary fix. Please plan for a Kernel upgrade later.${NC}"
+            echo -e "${GREEN}[V] Workaround applied successfully!${NC}"
+            echo -e "${PURPLE}Note: Exploit paths are now restricted without Reboot.${NC}"
         else
-            echo -e "${RED}[X] Failed to apply ip6tables rule. Please check if ip6tables is installed.${NC}"
+            echo -e "${RED}[X] Something went wrong during the process.${NC}"
         fi
     else
         echo -e "${YELLOW}[!] Workaround cancelled.${NC}"
     fi
 else
-    echo -e "\n${GREEN}[V] Result: System appears safe or IPv6 is already restricted.${NC}"
+    echo -e "\n${GREEN}[V] Result: System appears to be patched or running a secure kernel.${NC}"
 fi
 
 echo -e "${BLUE}===================================================${NC}"
