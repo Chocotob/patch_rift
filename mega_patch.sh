@@ -10,7 +10,7 @@ NC='\033[0m'
 
 echo -e "${BLUE}===================================================${NC}"
 echo -e "${BLUE}       All-in-One Security Patch (Prod-Safe)       ${NC}"
-echo -e "${BLUE}    NGINX Rift | SLAM Hotfix | DirtyFrag Hotfix    ${NC}"
+echo -e "${BLUE}    NGINX Rift | Copy Fail Hotfix | DirtyFrag Hotfix    ${NC}"
 echo -e "${BLUE}===================================================${NC}"
 
 # ตรวจสอบสิทธิ์ Root
@@ -56,21 +56,21 @@ else
 fi
 
 # ---------------------------------------------------------
-# SECTION 2: SLAM / Spectre-BHI (Workaround)
+# SECTION 2: Copy Fail Hotfix
 # ---------------------------------------------------------
-echo -e "\n${YELLOW}--- [2/3] SLAM / Spectre-BHI Hotfix ---${NC}"
+echo -e "\n${YELLOW}--- [2/3] Copy Fail Hotfix ---${NC}"
 STATUS_V2=$(cat /sys/devices/system/cpu/vulnerabilities/spectre_v2 2>/dev/null)
 
 if [[ "$STATUS_V2" == *"Vulnerable"* ]]; then
-    echo -e "${RED}[!] CPU is VULNERABLE to SLAM.${NC}"
-    read -p "Apply Hotfix (Disable algif_aead)? (y/n): " UP_SLAM < /dev/tty
-    if [[ "$UP_SLAM" == "y" ]]; then
+    echo -e "${RED}[!] System is VULNERABLE to Copy Fail.${NC}"
+    read -p "Apply Hotfix (Disable algif_aead)? (y/n): " UP_COPYFAIL < /dev/tty
+    if [[ "$UP_COPYFAIL" == "y" ]]; then
         echo "install algif_aead /bin/false" > /etc/modprobe.d/disable-algif.conf
         rmmod algif_aead 2>/dev/null
-        echo -e "${GREEN}[V] SLAM Hotfix applied.${NC}"
+        echo -e "${GREEN}[V] Copy Fail Hotfix applied.${NC}"
     fi
 else
-    echo -e "${GREEN}[V] SLAM Status: $STATUS_V2 (Safe or Mitigated)${NC}"
+    echo -e "${GREEN}[V] Copy Fail Status: $STATUS_V2 (Safe or Mitigated)${NC}"
 fi
 
 # ---------------------------------------------------------
